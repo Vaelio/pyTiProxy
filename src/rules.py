@@ -17,20 +17,20 @@ def dump_infos(msg):
 
 def catch_hackers(client_infos, addr, sock_client, fdclient, msg):
     try:
-        finder_agent = findall(b'\s*\(?(.+?)[/\s][\d.]+', client_infos[b'user_agent'][0])
+        finder_agent = findall(b'\s*\(?(.+?)[/\s][\d.]+', client_infos['user_agent'][0])
         for string in finder_agent:
             if string in hacker_agent:
                 generate_404(fdclient)
                 sock_client.close()
                 detect = True
-        for item in client_infos[b'referer']:
+        for item in client_infos['referer']:
             if item in hacker_referer:
                 generate_404(fdclient)
                 sock_client.close()
                 detect = True
-        if client_infos[b'data'] is not None:
+        if client_infos['data'] is not None:
             for item in hacker_data:
-                if item in client_infos[b'data']:
+                if item in client_infos['data']:
                     generate_404(fdclient)
                     sock_client.close()
                     detect = True
