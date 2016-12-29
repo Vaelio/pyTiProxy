@@ -10,9 +10,9 @@ hacker_referer = {'%3D', '%27', "'", "%"}
 
 def dump_infos(msg):
     return {
-            'referer' : msg.split('Referer: ')[1].split('\r\n')[0] if 'Referer: ' in msg else None,\
-            'data' : msg.split('\r\n\r\n')[1] if len(msg.split('\r\n\r\n')) > 0 else None,\
-            'user_agent' : msg.split('User-Agent: ')[1].split('\r\n')[0] if 'User-Agent: ' in msg else None
+            'referer' : msg.split(b'Referer: ')[1].split(b'\r\n')[0] if b'Referer: ' in msg else None,\
+            'data' : msg.split(b'\r\n\r\n')[1] if len(msg.split(b'\r\n\r\n')) > 0 else None,\
+            'user_agent' : msg.split(b'User-Agent: ')[1].split(b'\r\n')[0] if b'User-Agent: ' in msg else None
            }
 
 def catch_hackers(client_infos, addr, sock_client, fdclient, msg, detect):
