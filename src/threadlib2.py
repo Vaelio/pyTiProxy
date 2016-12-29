@@ -7,10 +7,10 @@ __doc__ = '''
 __all__ = ['cltthread', 'loger', 'worker', 'time']
 
 from time import time
-from socket import error as sock_err, socket
 from multiprocessing import Lock
 from datetime import datetime
 from rules import catch_hackers, dump_infos
+from sock_builder import start_ssl_socket,start_standard_socket
 
 
 def cltthread(queue, logqueue, ownqueue):
@@ -147,7 +147,7 @@ def exit_con(fdclient, sock_client, fdserver, sock_server):
         return True
 
 
-def worker(queue, logqueue, num):
+def worker(queue, logqueue, num, ssl, crt, key):
     """
     This function is the threaded one that will be treating all HTTP request in live.
     It is meant to use inside a pool of thread. It will pickup any requests in its queue,
@@ -173,6 +173,10 @@ def worker(queue, logqueue, num):
                 #LOG HERE
             fdclient = sock_client.makefile('rwb', 0)
             try:
+                if ssl:
+                    sock = start_ssl_socket(crt, key, server_side=False)
+                else:
+                    sock = start_standard_socket()
                 sock = socket()
                 # Connect to remote host
                 sock.connect((dst, port))

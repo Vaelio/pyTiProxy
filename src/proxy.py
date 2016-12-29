@@ -8,18 +8,20 @@ __author__ = ['Eudeline Valentin', 'Benoît Decampenaire']
 __reason__ = """ My own little project """
 __date__ = """ v2rc1 24 dec 2016 """
 
-from socket import socket, SOL_SOCKET, SO_REUSEADDR, error as sock_err
 from multiprocessing import Process as Thread, Queue
 from sys import api_version
 from time import time, sleep
-from requests import get
 from threadlib2 import loger, worker, cltthread
 from sys import version_info, exit
+from sock_builder import start_ssl_socket,start_standard_socket
+import argparse
 
 if version_info[0] < 3:
     exit("This program won't work with python version below python 3")
 
-def __init_serv__():
+
+def __init_serv__(ssl, address, port, crt , key):
+
     """ This func inits everything. Defines the queue, starts the pool of http workers,
         starts the logger thread, bind our script to 0.0.0.0:8080, and finally starts new
         thread for each client that connects
@@ -34,7 +36,7 @@ def __init_serv__():
     # We start a pool of N workers
     # They are used to serve each requests independently from the source client
     for num in range(6):
-        thread = Thread(target=worker, args=(queue, logqueue, num))
+        thread = Thread(target=worker, args=(queue, logqueue, num, ssl, crt, key))
         # We set each worker to Daemon
         # This is important because we can safely ^C now
         thread.start()
@@ -51,20 +53,19 @@ def __init_serv__():
         # for ^C sakes
         logthread.start()
 
-    sock = socket()
-    # We bind ourselves to port 8080 (usual port for proxy though)
-    # We use SO_REUSEADDR argument to be able to restart the proxy script right after we kill it
-    # Doesn't work every time sadly
-    # There is probably a lot of timeout errors
-    sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+    if ssl:
+        sock = start_ssl_socket(crt, key, server_side=True)
+    else:
+        sock = start_standard_socket()
+
     try:
-        sock.bind(('0.0.0.0', 8080))
+        sock.bind((address, port))
     except sock_err:
         print(
             '%s - [INFO] Exception SOCKET_ERROR: Can\'t bind.Please try again later.' %
             (time()))
     else:
-        print('%s - [INFO] Server listening to 0.0.0.0:8080' % (time()))
+        print('%s - [INFO] Server listening' % (time()))
     try:
         # Here we just wait until we received a new connection (from a client)
         # We then start a thread to handle this specific client / request
@@ -79,5 +80,14 @@ def __init_serv__():
         print('Bye')
         exit(0)
 
+
 if __name__ == '__main__':
-    __init_serv__()
+    parser = argparse.ArgumentParser(description='ProxyPy is a reverse proxy for lulz :)')
+    parser.add_argument('--ssl', action='store_true', required=False)
+    parser.add_argument('--address', metavar='IP address of interface that should listen',
+                        nargs='?', type=str, required=True)
+    parser.add_argument('--port', metavar='Port that should listen', nargs='?', type=int, required=False, default=8080)
+    parser.add_argument('--crt', metavar='crt file for ssl purpose', nargs='?', type=str, required=False)
+    parser.add_argument('--key', metavar='key file for ssl purpose', nargs='?', type=str, required=False)
+    args = parser.parse_args()
+    __init_serv__(args.ssl, args.address, args.port, args.crt , args.key)
