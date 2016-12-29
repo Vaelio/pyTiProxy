@@ -11,7 +11,7 @@ from multiprocessing import Lock
 from datetime import datetime
 from rules import catch_hackers, dump_infos
 from sock_builder import start_ssl_socket,start_standard_socket
-from socket import error as sock_err
+from socket import error as sock_err, fromfd
 
 
 def cltthread(queue, logger, ownqueue):
@@ -164,7 +164,12 @@ def worker(queue, logger, num, ssl, crt, key):
             # We take the last oldest instruction from the queue
             # format of each element:
             # [client socket, remote host, remote port, client request]
-            sock_client, dst, port, msg, addr = queue.get()
+            if ssl:
+                shandle, dst, port, msg, addr = queue.get()
+                fd = rebuild_handle(shandle)
+                sock_client = fromfd(fd, socket.AF_INET, socket.SOCK_STREAM)
+            else:
+                sock_client, dst, port, msg, addr = queue.get()
             fdclient = sock_client.makefile('rwb', 0)
             if catch_hackers(dump_infos(msg), addr, sock_client, fdclient, msg):
                 generate_404(fdclient)

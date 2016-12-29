@@ -16,6 +16,7 @@ from sys import version_info, exit
 from sock_builder import start_ssl_socket,start_standard_socket
 from argparse import ArgumentParser
 from logger import init_logger
+from socket import error as sock_err
 
 if version_info[0] < 3:
     exit("This program won't work with python version below python 3")
@@ -78,7 +79,9 @@ def __init_serv__(ssl, address, port, crt , key):
             # max connection is set to 0, but i guess we could set it to the number of
             # started workers. Possibly using threading.activeCount()
             cltsock, cltaddr = sock.accept()
-            ownqueue.put([cltsock, cltaddr])
+            if ssl:
+                shandle = reduce_handle(cltsock.fileno())
+            ownqueue.put([shandle, cltaddr])
     except KeyboardInterrupt:
         sock.close()
         print('Bye')
