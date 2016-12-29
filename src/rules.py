@@ -15,7 +15,7 @@ def dump_infos(msg):
             'user_agent' : msg.split(b'User-Agent: ')[1].split(b'\r\n')[0] if b'User-Agent: ' in msg else None
            }
 
-def catch_hackers(client_infos, addr, sock_client, fdclient, msg, detect):
+def catch_hackers(client_infos, addr, sock_client, fdclient, msg):
     try:
         finder_agent = re.findall(b'\s*\(?(.+?)[/\s][\d.]+', client_infos[b'user_agent'][0])
         for string in finder_agent:
