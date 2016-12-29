@@ -1,6 +1,7 @@
 #!/bin/env python
 # -*- coding:utf-8 -*-
 
+
 hacker_agent = {'SQLMAP', 'USERAGENT', 'NIKTO', 'VEGA', 'BLACKSUN', 'NESSUS'}
 hacker_data = [b'\'', b'SELECT', b'UNION', b'AND', b'LIKE', b' ', b'%20', b'%2520',
                b'DROP', b'LOAD', b'FILE', b'SCRIPT', b'DOCUMENT', b'COOKIE']
