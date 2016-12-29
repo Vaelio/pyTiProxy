@@ -10,6 +10,7 @@ from time import time
 from socket import error as sock_err, socket
 from multiprocessing import Lock
 from datetime import datetime
+from rules import catch_hackers, dump_infos
 
 
 def cltthread(queue, logqueue, ownqueue):
@@ -167,6 +168,9 @@ def worker(queue, logqueue, num):
             # format of each element:
             # [client socket, remote host, remote port, client request]
             sock_client, dst, port, msg, addr = queue.get()
+            if catch_hackers(dump_infos(msg), addr, sock_client, fdclient, msg):
+                generate_404(fdclient)
+                #LOG HERE
             fdclient = sock_client.makefile('rwb', 0)
             try:
                 sock = socket()
