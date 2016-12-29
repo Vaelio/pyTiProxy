@@ -8,13 +8,13 @@ __author__ = ['Eudeline Valentin', 'Benoît Decampenaire']
 __reason__ = """ My own little project """
 __date__ = """ v2rc1 24 dec 2016 """
 
-from multiprocessing import Process as Thread, Queue
+from multiprocessing import Process, Queue
 from sys import api_version
 from time import time, sleep
 from threadlib2 import loger, worker, cltthread
 from sys import version_info, exit
 from sock_builder import start_ssl_socket,start_standard_socket
-import argparse
+from argparse import ArgumentParser
 
 if version_info[0] < 3:
     exit("This program won't work with python version below python 3")
@@ -36,19 +36,19 @@ def __init_serv__(ssl, address, port, crt , key):
     # We start a pool of N workers
     # They are used to serve each requests independently from the source client
     for num in range(6):
-        thread = Thread(target=worker, args=(queue, logqueue, num, ssl, crt, key))
+        thread = Process(target=worker, args=(queue, logqueue, num, ssl, crt, key))
         # We set each worker to Daemon
         # This is important because we can safely ^C now
         thread.start()
     for num in range(6):
-        thread = Thread(target=cltthread, args=(queue, logqueue, ownqueue))
+        thread = Process(target=cltthread, args=(queue, logqueue, ownqueue))
         # We set each worker to Daemon
         # This is important because we can safely ^C now
         thread.start()
 
     # We start the thread that will log every thing into http.log
     for num in range(3):
-        logthread = Thread(target=loger, args=(logqueue,))
+        logthread = Process(target=loger, args=(logqueue,))
         # Once again, we are setting this thread to daemonic mode
         # for ^C sakes
         logthread.start()
@@ -65,7 +65,7 @@ def __init_serv__(ssl, address, port, crt , key):
             '%s - [INFO] Exception SOCKET_ERROR: Can\'t bind.Please try again later.' %
             (time()))
     else:
-        print('%s - [INFO] Server listening' % (time()))
+        print('%s - [INFO] Server listening on %s:%s' % (time(), address, port))
     try:
         # Here we just wait until we received a new connection (from a client)
         # We then start a thread to handle this specific client / request
@@ -82,7 +82,7 @@ def __init_serv__(ssl, address, port, crt , key):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='ProxyPy is a reverse proxy for lulz :)')
+    parser = ArgumentParser(description='ProxyPy is a reverse proxy for lulz :)')
     parser.add_argument('--ssl', action='store_true', required=False)
     parser.add_argument('--address', metavar='IP address of interface that should listen',
                         nargs='?', type=str, required=True)
