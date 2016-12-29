@@ -13,7 +13,7 @@ from rules import catch_hackers, dump_infos
 from sock_builder import start_ssl_socket,start_standard_socket
 
 
-def cltthread(queue, logqueue, ownqueue):
+def cltthread(queue, logger, ownqueue):
     """ This func is what manages each client connecting, for ONE requests
 
 
@@ -23,8 +23,6 @@ def cltthread(queue, logqueue, ownqueue):
     @param addr: Address representation of the client
     @type queue: queue
     @param queue: queue that will contain HTTP request to treat
-    @type logqueue: queue
-    @param logqueue: queue that will contain all logs when HTTP request are being treated
     """
     # we receive what the client wanna do
     try:
@@ -50,16 +48,14 @@ def cltthread(queue, logqueue, ownqueue):
                 # format of msg does not match usual stuff
                 # Somebody else is probably attempting to get through our proxy
                 # We need to do something here
-                #logqueue.put([addr, "- INDEX ERROR -" + repr(msg).replace(, '\\r\\n')])
                 sock.close()
                 continue
             # msg = ' '.join(msg.split()[0].split(' ')[1:])
             # then we put it in the queue so that the workers will do their job
-            logqueue.put([addr, " requested %s:%s"%(dst, port)])
+            logger.info("%s requested %s:%s"%(addr, dst, port))
             queue.put([sock, dst, port, msg, addr])
             # finally LOG the file
             #print '%s - [INFO] %s - %s'%(time(), addr, repr(msg))
-            #logqueue.put([addr, "New request (QSIZE: %s)"%(queue.qsize())])
             # then returns
     except KeyboardInterrupt:
         return 0
@@ -147,7 +143,7 @@ def exit_con(fdclient, sock_client, fdserver, sock_server):
         return True
 
 
-def worker(queue, logqueue, num, ssl, crt, key):
+def worker(queue, logger, num, ssl, crt, key):
     """
     This function is the threaded one that will be treating all HTTP request in live.
     It is meant to use inside a pool of thread. It will pickup any requests in its queue,
@@ -215,7 +211,7 @@ def worker(queue, logqueue, num, ssl, crt, key):
             if not headers:
                 # We should send again some kind of message saying that something wrong happened between here and the server
                 # right now we just ignore
-                logqueue.put([addr, "Could not connect to %s:%s"%(dst, port)])
+                logger.warning("Could not connect to %s:%s for %s"%(dst, port, addr))
                 continue
             fdclient.write(headers)
             chunked = True if b'Transfer-Encoding' in headers and b'chunked' in headers.split(b'Transfer-Encoding')[1].split(b'\r\n')[0] else False

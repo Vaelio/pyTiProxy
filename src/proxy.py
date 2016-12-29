@@ -15,6 +15,7 @@ from threadlib2 import loger, worker, cltthread
 from sys import version_info, exit
 from sock_builder import start_ssl_socket,start_standard_socket
 from argparse import ArgumentParser
+from logger import init_logger
 
 if version_info[0] < 3:
     exit("This program won't work with python version below python 3")
@@ -32,27 +33,30 @@ def __init_serv__(ssl, address, port, crt , key):
     # Defines another FIFO queue for LOG thread
     logqueue = Queue()
     ownqueue = Queue()
-
+    logger = init_logger("log/proxy.log")
     # We start a pool of N workers
     # They are used to serve each requests independently from the source client
     for num in range(6):
-        thread = Process(target=worker, args=(queue, logqueue, num, ssl, crt, key))
+        thread = Process(target=worker, args=(queue, logger, num, ssl, crt, key))
+        # thread = Process(target=worker, args=(queue, logqueue, num, ssl, crt, key))
         # We set each worker to Daemon
         # This is important because we can safely ^C now
         thread.start()
     for num in range(6):
-        thread = Process(target=cltthread, args=(queue, logqueue, ownqueue))
+        thread = Process(target=cltthread, args=(queue, logger, ownqueue))
+        # thread = Process(target=cltthread, args=(queue, logqueue, ownqueue))
         # We set each worker to Daemon
         # This is important because we can safely ^C now
         thread.start()
 
     # We start the thread that will log every thing into http.log
+    """
     for num in range(3):
         logthread = Process(target=loger, args=(logqueue,))
         # Once again, we are setting this thread to daemonic mode
         # for ^C sakes
         logthread.start()
-
+    """
     if ssl:
         sock = start_ssl_socket(crt, key, server_side=True)
     else:
