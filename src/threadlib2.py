@@ -164,10 +164,10 @@ def worker(queue, logger, num, ssl, crt, key):
             # format of each element:
             # [client socket, remote host, remote port, client request]
             sock_client, dst, port, msg, addr = queue.get()
+            fdclient = sock_client.makefile('rwb', 0)
             if catch_hackers(dump_infos(msg), addr, sock_client, fdclient, msg):
                 generate_404(fdclient)
                 #LOG HERE
-            fdclient = sock_client.makefile('rwb', 0)
             try:
                 if ssl:
                     sock = start_ssl_socket(crt, key, server_side=False)
