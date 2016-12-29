@@ -17,7 +17,7 @@ def dump_infos(msg):
 
 def catch_hackers(client_infos, addr, sock_client, fdclient, msg):
     try:
-        finder_agent = re.findall(b'\s*\(?(.+?)[/\s][\d.]+', client_infos[b'user_agent'][0])
+        finder_agent = findall(b'\s*\(?(.+?)[/\s][\d.]+', client_infos[b'user_agent'][0])
         for string in finder_agent:
             if string in hacker_agent:
                 generate_404(fdclient)
