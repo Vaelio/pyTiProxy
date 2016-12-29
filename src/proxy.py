@@ -79,8 +79,6 @@ def __init_serv__(ssl, address, port, crt , key):
             # max connection is set to 0, but i guess we could set it to the number of
             # started workers. Possibly using threading.activeCount()
             cltsock, cltaddr = sock.accept()
-            if ssl:
-                shandle = reduce_handle(cltsock.fileno())
             ownqueue.put([shandle, cltaddr])
     except KeyboardInterrupt:
         sock.close()
