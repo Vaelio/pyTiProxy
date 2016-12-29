@@ -11,6 +11,7 @@ from multiprocessing import Lock
 from datetime import datetime
 from rules import catch_hackers, dump_infos
 from sock_builder import start_ssl_socket,start_standard_socket
+from socket import error as sock_err
 
 
 def cltthread(queue, logger, ownqueue):
@@ -173,7 +174,6 @@ def worker(queue, logger, num, ssl, crt, key):
                     sock = start_ssl_socket(crt, key, server_side=False)
                 else:
                     sock = start_standard_socket()
-                sock = socket()
                 # Connect to remote host
                 sock.connect((dst, port))
                 fdserver = sock.makefile('rwb', 0)
