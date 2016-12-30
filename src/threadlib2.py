@@ -31,7 +31,7 @@ def cltthread(queue, logger, ownqueue, context):
         transmission_over = False
         while not transmission_over:
             sockapwal, addr = ownqueue.get()
-            sock = context.wrap_socket(sock, server_side=True)
+            sock = context.wrap_socket(sockapwal, server_side=True)
             content = b""
             received_all_data = False
             while not received_all_data:
@@ -168,6 +168,8 @@ def worker(queue, logger, num, ssl, context):
             # format of each element:
             # [client socket, remote host, remote port, client request]
             sock_client, dst, port, msg, addr = queue.get()
+            if dst == '127.0.0.1':
+                msg = msg.replace(dst, 'open.mrgiggy.com')
             if ssl:
                 sock_client = context.wrap_socket(sock_client, server_side=True)
             fdclient = sock_client.makefile('rwb', 0)

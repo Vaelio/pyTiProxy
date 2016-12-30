@@ -17,6 +17,8 @@ from sock_builder import start_ssl_socket,start_standard_socket
 from argparse import ArgumentParser
 from logger import init_logger
 from socket import error as sock_err
+from ssl import create_default_context, Purpose
+
 
 if version_info[0] < 3:
     exit("This program won't work with python version below python 3")
