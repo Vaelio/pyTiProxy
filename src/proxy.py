@@ -8,7 +8,6 @@ __author__ = ['Eudeline Valentin', 'Benoît Decampenaire']
 __reason__ = """ My own little project """
 __date__ = """ v2rc1 24 dec 2016 """
 
-from multiprocessing import Process, Queue
 from sys import api_version
 from time import time, sleep
 from threadlib2 import loger, worker, cltthread
@@ -29,6 +28,11 @@ def __init_serv__(ssl, address, port, crt , key):
         thread for each client that connects
     """
 
+    if ssl:
+        from threading import Thread as child
+        from Queue import Queue
+    else:
+        from multiprocessing import Process as child, Queue
     # Defines a FIFO queue for requests threads
     queue = Queue()
     # Defines another FIFO queue for LOG thread
@@ -79,7 +83,7 @@ def __init_serv__(ssl, address, port, crt , key):
             # max connection is set to 0, but i guess we could set it to the number of
             # started workers. Possibly using threading.activeCount()
             cltsock, cltaddr = sock.accept()
-            ownqueue.put([shandle, cltaddr])
+            ownqueue.put([cltsock, cltaddr])
     except KeyboardInterrupt:
         sock.close()
         print('Bye')
