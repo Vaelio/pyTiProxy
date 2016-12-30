@@ -30,7 +30,7 @@ def __init_serv__(ssl, address, port, crt , key):
 
     if ssl:
         from threading import Thread as Child
-        from Queue import Queue
+        from queue import Queue
     else:
         from multiprocessing import Process as Child, Queue
     # Defines a FIFO queue for requests threads
