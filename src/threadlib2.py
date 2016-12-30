@@ -12,10 +12,9 @@ from datetime import datetime
 from rules import catch_hackers, dump_infos
 from sock_builder import start_ssl_socket,start_standard_socket
 from socket import error as sock_err, fromfd
-from ssl import create_default_context, Purpose
 
 
-def cltthread(queue, logger, ownqueue, context):
+def cltthread(queue, logger, ownqueue):
     """ This func is what manages each client connecting, for ONE requests
 
 
@@ -30,8 +29,7 @@ def cltthread(queue, logger, ownqueue, context):
     try:
         transmission_over = False
         while not transmission_over:
-            sockapwal, addr = ownqueue.get()
-            sock = context.wrap_socket(sockapwal, server_side=True)
+            sock, addr = ownqueue.get()
             content = b""
             received_all_data = False
             while not received_all_data:
@@ -56,7 +54,7 @@ def cltthread(queue, logger, ownqueue, context):
             # msg = ' '.join(msg.split()[0].split(' ')[1:])
             # then we put it in the queue so that the workers will do their job
             logger.info("%s requested %s:%s"%(addr, dst, port))
-            queue.put([sockapwal, dst, port, msg, addr])
+            queue.put([sock, dst, port, msg, addr])
             # finally LOG the file
             #print '%s - [INFO] %s - %s'%(time(), addr, repr(msg))
             # then returns
@@ -141,13 +139,12 @@ def exit_con(fdclient, sock_client, fdserver, sock_server):
         ################ LOG ######################
         # We should log whenever we have this case happening. 
         # That means that the socket got closed between the begining and the end of the communication
-        logger.warning("Somehow couldn't close socket here")
         return False
     else:
         return True
 
 
-def worker(queue, logger, num, ssl, context):
+def worker(queue, logger, num, ssl, crt, key):
     """
     This function is the threaded one that will be treating all HTTP request in live.
     It is meant to use inside a pool of thread. It will pickup any requests in its queue,
@@ -168,18 +165,13 @@ def worker(queue, logger, num, ssl, context):
             # format of each element:
             # [client socket, remote host, remote port, client request]
             sock_client, dst, port, msg, addr = queue.get()
-            if dst == '127.0.0.1':
-                msg = msg.replace(dst, 'open.mrgiggy.com')
-            if ssl:
-                sock_client = context.wrap_socket(sock_client, server_side=True)
             fdclient = sock_client.makefile('rwb', 0)
             if catch_hackers(dump_infos(msg), addr, sock_client, fdclient, msg):
-                logger.warning("%s has been caught as a hacker"%(addr))
                 generate_404(fdclient)
                 #LOG HERE
             try:
                 if ssl:
-                    sock = start_ssl_socket(context, server_side=False)
+                    sock = start_ssl_socket(crt, key, server_side=False)
                 else:
                     sock = start_standard_socket()
                 # Connect to remote host

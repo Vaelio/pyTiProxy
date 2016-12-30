@@ -17,8 +17,6 @@ from sock_builder import start_ssl_socket,start_standard_socket
 from argparse import ArgumentParser
 from logger import init_logger
 from socket import error as sock_err
-from ssl import create_default_context, Purpose
-
 
 if version_info[0] < 3:
     exit("This program won't work with python version below python 3")
@@ -39,16 +37,14 @@ def __init_serv__(ssl, address, port, crt , key):
     logger = init_logger("log/proxy.log")
     # We start a pool of N workers
     # They are used to serve each requests independently from the source client
-    context = create_default_context(Purpose.CLIENT_AUTH)
-    context.load_cert_chain(certfile=crt, keyfile=key)
     for num in range(6):
-        thread = Process(target=worker, args=(queue, logger, num, ssl, context))
+        thread = Process(target=worker, args=(queue, logger, num, ssl, crt, key))
         # thread = Process(target=worker, args=(queue, logqueue, num, ssl, crt, key))
         # We set each worker to Daemon
         # This is important because we can safely ^C now
         thread.start()
     for num in range(6):
-        thread = Process(target=cltthread, args=(queue, logger, ownqueue, context))
+        thread = Process(target=cltthread, args=(queue, logger, ownqueue))
         # thread = Process(target=cltthread, args=(queue, logqueue, ownqueue))
         # We set each worker to Daemon
         # This is important because we can safely ^C now
@@ -62,7 +58,10 @@ def __init_serv__(ssl, address, port, crt , key):
         # for ^C sakes
         logthread.start()
     """
-    sock = start_standard_socket()
+    if ssl:
+        sock = start_ssl_socket(crt, key, server_side=True)
+    else:
+        sock = start_standard_socket()
 
     try:
         sock.bind((address, port))
@@ -80,7 +79,7 @@ def __init_serv__(ssl, address, port, crt , key):
             # max connection is set to 0, but i guess we could set it to the number of
             # started workers. Possibly using threading.activeCount()
             cltsock, cltaddr = sock.accept()
-            ownqueue.put([cltsock, cltaddr])
+            ownqueue.put([shandle, cltaddr])
     except KeyboardInterrupt:
         sock.close()
         print('Bye')

@@ -14,7 +14,9 @@ def start_standard_socket():
     return sock
 
 
-def start_ssl_socket(context, server_side):
+def start_ssl_socket(crt, key, server_side):
+    context = create_default_context(Purpose.CLIENT_AUTH)
+    context.load_cert_chain(certfile=crt, keyfile=key)
     sock = socket()
     sock = context.wrap_socket(sock, server_side=server_side)
     sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
