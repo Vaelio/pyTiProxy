@@ -29,7 +29,7 @@ def __init_serv__(ssl, address, port, crt , key):
     """
 
     if ssl:
-        from threading import Thread as child
+        from threading import Thread as Child
         from Queue import Queue
     else:
         from multiprocessing import Process as Child, Queue
