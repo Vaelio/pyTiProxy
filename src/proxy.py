@@ -32,7 +32,7 @@ def __init_serv__(ssl, address, port, crt , key):
         from threading import Thread as child
         from Queue import Queue
     else:
-        from multiprocessing import Process as child, Queue
+        from multiprocessing import Process as Child, Queue
     # Defines a FIFO queue for requests threads
     queue = Queue()
     # Defines another FIFO queue for LOG thread
@@ -42,13 +42,13 @@ def __init_serv__(ssl, address, port, crt , key):
     # We start a pool of N workers
     # They are used to serve each requests independently from the source client
     for num in range(6):
-        thread = Process(target=worker, args=(queue, logger, num, ssl, crt, key))
+        thread = Child(target=worker, args=(queue, logger, num, ssl, crt, key))
         # thread = Process(target=worker, args=(queue, logqueue, num, ssl, crt, key))
         # We set each worker to Daemon
         # This is important because we can safely ^C now
         thread.start()
     for num in range(6):
-        thread = Process(target=cltthread, args=(queue, logger, ownqueue))
+        thread = Child(target=cltthread, args=(queue, logger, ownqueue))
         # thread = Process(target=cltthread, args=(queue, logqueue, ownqueue))
         # We set each worker to Daemon
         # This is important because we can safely ^C now
