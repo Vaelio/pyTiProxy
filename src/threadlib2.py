@@ -14,7 +14,7 @@ from sock_builder import start_ssl_socket,start_standard_socket
 from socket import error as sock_err, fromfd
 
 
-def cltthread(logger, ownqueue, crt, key, context):
+def cltthread(logger, ownqueue, crt, key, context, ssl):
     """ This func is what manages each client connecting, for ONE requests
 
 
@@ -31,7 +31,7 @@ def cltthread(logger, ownqueue, crt, key, context):
         while not transmission_over:
             sock, addr = ownqueue.get()
             if ssl:
-                sock = context.wrap_socket(sock, serverside=True)
+                sock = context.wrap_socket(sock, server_side=True)
             content = b""
             received_all_data = False
             while not received_all_data:
@@ -56,7 +56,7 @@ def cltthread(logger, ownqueue, crt, key, context):
             # msg = ' '.join(msg.split()[0].split(' ')[1:])
             # then we put it in the queue so that the workers will do their job
             logger.info("%s requested %s:%s"%(addr, dst, port))
-            worker(sock, dst, port, msg, addr, logger, ssl, crt, ke)
+            worker(sock, dst, port, msg, addr, logger, ssl, crt, key)
             # queue.put([sock, dst, port, msg, addr])
             # finally LOG the file
             #print '%s - [INFO] %s - %s'%(time(), addr, repr(msg))

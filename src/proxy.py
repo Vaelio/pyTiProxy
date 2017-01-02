@@ -55,7 +55,7 @@ def __init_serv__(ssl, address, port, crt , key):
         thread.start()
     """
     for num in range(6):
-        thread = Child(target=cltthread, args=(logger, ownqueue, crt, key, context))
+        thread = Child(target=cltthread, args=(logger, ownqueue, crt, key, context, ssl))
         # thread = Process(target=cltthread, args=(queue, logqueue, ownqueue))
         # We set each worker to Daemon
         # This is important because we can safely ^C now

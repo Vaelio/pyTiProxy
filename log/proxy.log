@@ -1,0 +1,6 @@
+2017-01-02 13:44:33 - logger - INFO - ('127.0.0.1', 53970) requested b'GET / HTTP/1.1\r\nHost':8080
+2017-01-02 13:44:33 - logger - INFO - ('127.0.0.1', 54024) requested b'GET / HTTP/1.1\r\nHost':8080
+2017-01-02 13:45:16 - logger - INFO - ('127.0.0.1', 54808) requested b'GET / HTTP/1.1\r\nHost':8080
+2017-01-02 13:47:39 - logger - INFO - ('127.0.0.1', 56526) requested b'GET / HTTP/1.1\r\nHost':8080
+2017-01-02 13:51:08 - logger - INFO - ('127.0.0.1', 59178) requested b'GET / HTTP/1.1\r\nHost':8080
+2017-01-02 13:51:08 - logger - INFO - ('127.0.0.1', 59228) requested b'GET / HTTP/1.1\r\nHost':8080
