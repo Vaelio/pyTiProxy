@@ -14,7 +14,7 @@ from sock_builder import start_ssl_socket,start_standard_socket
 from socket import error as sock_err, fromfd
 
 
-def cltthread(queue, logger, ownqueue):
+def cltthread(logger, ownqueue, crt, key, context):
     """ This func is what manages each client connecting, for ONE requests
 
 
@@ -30,6 +30,8 @@ def cltthread(queue, logger, ownqueue):
         transmission_over = False
         while not transmission_over:
             sock, addr = ownqueue.get()
+            if ssl:
+                sock = context.wrap_socket(sock, serverside=True)
             content = b""
             received_all_data = False
             while not received_all_data:
@@ -54,7 +56,8 @@ def cltthread(queue, logger, ownqueue):
             # msg = ' '.join(msg.split()[0].split(' ')[1:])
             # then we put it in the queue so that the workers will do their job
             logger.info("%s requested %s:%s"%(addr, dst, port))
-            queue.put([sock, dst, port, msg, addr])
+            worker(sock, dst, port, msg, addr, logger, ssl, crt, ke)
+            # queue.put([sock, dst, port, msg, addr])
             # finally LOG the file
             #print '%s - [INFO] %s - %s'%(time(), addr, repr(msg))
             # then returns
@@ -144,7 +147,7 @@ def exit_con(fdclient, sock_client, fdserver, sock_server):
         return True
 
 
-def worker(queue, logger, num, ssl, crt, key):
+def worker(sock_client, dst, port, msg, addr, logger, crt, key, context):
     """
     This function is the threaded one that will be treating all HTTP request in live.
     It is meant to use inside a pool of thread. It will pickup any requests in its queue,
@@ -164,14 +167,14 @@ def worker(queue, logger, num, ssl, crt, key):
             # We take the last oldest instruction from the queue
             # format of each element:
             # [client socket, remote host, remote port, client request]
-            sock_client, dst, port, msg, addr = queue.get()
+            # sock_client, dst, port, msg, addr = queue.get()
             fdclient = sock_client.makefile('rwb', 0)
             if catch_hackers(dump_infos(msg), addr, sock_client, fdclient, msg):
                 generate_404(fdclient)
                 #LOG HERE
             try:
-                if ssl:
-                    sock = start_ssl_socket(crt, key, server_side=False)
+                if context:
+                    sock = context.wrap_socket(socket(), serverside = False)
                 else:
                     sock = start_standard_socket()
                 # Connect to remote host

@@ -11,13 +11,13 @@ def start_standard_socket():
     # Doesn't work every time sadly
     # There is probably a lot of timeout errors
     sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-    return sock
+    return sock, None
 
 
 def start_ssl_socket(crt, key, server_side):
     context = create_default_context(Purpose.CLIENT_AUTH)
     context.load_cert_chain(certfile=crt, keyfile=key)
     sock = socket()
-    sock = context.wrap_socket(sock, server_side=server_side)
-    sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-    return sock
+    if server_side:
+        sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+    return sock, context
