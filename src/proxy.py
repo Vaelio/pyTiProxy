@@ -8,6 +8,7 @@ __author__ = ['Eudeline Valentin', 'Benoît Decampenaire']
 __reason__ = """ My own little project """
 __date__ = """ v2rc1 24 dec 2016 """
 
+from multiprocessing import Process, Queue
 from sys import api_version
 from time import time, sleep
 from threadlib2 import loger, worker, cltthread
@@ -28,11 +29,6 @@ def __init_serv__(ssl, address, port, crt , key):
         thread for each client that connects
     """
 
-    if ssl:
-        from threading import Thread as Child
-        from queue import Queue
-    else:
-        from multiprocessing import Process as Child, Queue
     # Defines a FIFO queue for requests threads
     queue = Queue()
     # Defines another FIFO queue for LOG thread
@@ -42,13 +38,13 @@ def __init_serv__(ssl, address, port, crt , key):
     # We start a pool of N workers
     # They are used to serve each requests independently from the source client
     for num in range(6):
-        thread = Child(target=worker, args=(queue, logger, num, ssl, crt, key))
+        thread = Process(target=worker, args=(queue, logger, num, ssl, crt, key))
         # thread = Process(target=worker, args=(queue, logqueue, num, ssl, crt, key))
         # We set each worker to Daemon
         # This is important because we can safely ^C now
         thread.start()
     for num in range(6):
-        thread = Child(target=cltthread, args=(queue, logger, ownqueue))
+        thread = Process(target=cltthread, args=(queue, logger, ownqueue))
         # thread = Process(target=cltthread, args=(queue, logqueue, ownqueue))
         # We set each worker to Daemon
         # This is important because we can safely ^C now
@@ -83,7 +79,7 @@ def __init_serv__(ssl, address, port, crt , key):
             # max connection is set to 0, but i guess we could set it to the number of
             # started workers. Possibly using threading.activeCount()
             cltsock, cltaddr = sock.accept()
-            ownqueue.put([cltsock, cltaddr])
+            ownqueue.put([shandle, cltaddr])
     except KeyboardInterrupt:
         sock.close()
         print('Bye')
