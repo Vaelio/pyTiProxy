@@ -11,7 +11,7 @@ from multiprocessing import Lock
 from datetime import datetime
 from rules import catch_hackers, dump_infos
 from sock_builder import start_ssl_socket,start_standard_socket
-from socket import error as sock_err, fromfd
+from socket import error as sock_err, fromfd, socket
 
 
 def cltthread(logger, ownqueue, crt, key, context, ssl):
