@@ -59,6 +59,7 @@ def __init_serv__(ssl, address, port, crt , key):
         # thread = Process(target=cltthread, args=(queue, logqueue, ownqueue))
         # We set each worker to Daemon
         # This is important because we can safely ^C now
+        thread.daemon = True
         thread.start()
     # We start the thread that will log every thing into http.log
     """
