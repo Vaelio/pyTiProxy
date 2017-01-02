@@ -56,7 +56,7 @@ def cltthread(logger, ownqueue, crt, key, context, ssl):
             # msg = ' '.join(msg.split()[0].split(' ')[1:])
             # then we put it in the queue so that the workers will do their job
             logger.info("%s requested %s:%s"%(addr, dst, port))
-            worker(sock, dst, port, msg, addr, logger, ssl, crt, key)
+            worker(sock, dst, port, msg, addr, logger, crt, key, context)
             # queue.put([sock, dst, port, msg, addr])
             # finally LOG the file
             #print '%s - [INFO] %s - %s'%(time(), addr, repr(msg))
