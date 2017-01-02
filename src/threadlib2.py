@@ -159,114 +159,111 @@ def worker(sock_client, dst, port, msg, addr, logger, crt, key, context):
     @type num: int
     @param num: the number of the thread.
     """
+    # If the queue is not empty (means that client wants something)
+    # We should delete this line, i think it is killing the process
+    # if not queue.empty():
+    # We take the last oldest instruction from the queue
+    # format of each element:
+    # [client socket, remote host, remote port, client request]
+    # sock_client, dst, port, msg, addr = queue.get()
+    fdclient = sock_client.makefile('rwb', 0)
+    if catch_hackers(dump_infos(msg), addr, sock_client, fdclient, msg):
+        generate_404(fdclient)
+        #LOG HERE
     try:
-        while True:
-            # If the queue is not empty (means that client wants something)
-            # We should delete this line, i think it is killing the process
-            # if not queue.empty():
-            # We take the last oldest instruction from the queue
-            # format of each element:
-            # [client socket, remote host, remote port, client request]
-            # sock_client, dst, port, msg, addr = queue.get()
-            fdclient = sock_client.makefile('rwb', 0)
-            if catch_hackers(dump_infos(msg), addr, sock_client, fdclient, msg):
-                generate_404(fdclient)
-                #LOG HERE
-            try:
-                if context:
-                    sock = context.wrap_socket(socket(), serverside = False)
-                else:
-                    sock = start_standard_socket()
-                # Connect to remote host
-                sock.connect((dst, port))
-                fdserver = sock.makefile('rwb', 0)
-                # Send the HTTP Request
-                fdserver.write(msg)
-                #print 'Worker %s connected to remote host'%num
-            except TimeoutError:
-                # Could not connect to host
-                # Before closing we should send some data to the user
-                # 503 maybe ? or Bad Gateway
-                fdclient.close()
-                sock_client.close()
-                continue
-            except sock_err:
-                fdclient.close()
-                sock_client.close()
-                continue
-            except OSError:
-                # no route to host
-                # Before closing we should send some data to the user
-                # 503 maybe ? or Bad Gateway
-                fdclient.close()
-                sock_client.close()
-                if not exit_con(fdclient, sock_client, fdserver, sock):
-                    # we should log. something wrong happened
-                    pass
-                continue
-            # Setup every thing for server communication
-            content, length, chunked = b'', 0, False
-            done = False
-            # Now we will work out with the server
-            # We loop on the recv to get everything
+        if context:
+            sock = context.wrap_socket(socket(), server_side = False)
+        else:
+            sock = start_standard_socket()
+        # Connect to remote host
+        sock.connect((dst, port))
+        fdserver = sock.makefile('rwb', 0)
+        # Send the HTTP Request
+        fdserver.write(msg)
+        #print 'Worker %s connected to remote host'%num
+    except TimeoutError:
+        # Could not connect to host
+        # Before closing we should send some data to the user
+        # 503 maybe ? or Bad Gateway
+        fdclient.close()
+        sock_client.close()
+        return
+    except sock_err:
+        fdclient.close()
+        sock_client.close()
+        return
+    except OSError:
+        # no route to host
+        # Before closing we should send some data to the user
+        # 503 maybe ? or Bad Gateway
+        fdclient.close()
+        sock_client.close()
+        if not exit_con(fdclient, sock_client, fdserver, sock):
+            # we should log. something wrong happened
+            pass
+        return
+    # Setup every thing for server communication
+    content, length, chunked = b'', 0, False
+    done = False
+    # Now we will work out with the server
+    # We loop on the recv to get everything
 
-            headers = getheaders(fdserver)
-            if not headers:
-                # We should send again some kind of message saying that something wrong happened between here and the server
-                # right now we just ignore
-                logger.warning("Could not connect to %s:%s for %s"%(dst, port, addr))
-                continue
-            fdclient.write(headers)
-            chunked = True if b'Transfer-Encoding' in headers and b'chunked' in headers.split(b'Transfer-Encoding')[1].split(b'\r\n')[0] else False
-            length = int(headers.split(b'Content-Length: ')[1].split(b'\r\n')[0]) if b'Content-Length' in headers else 0
-            if msg.split(b' ')[0] in [b'HEAD', b'OPTIONS', b'TRACE', b'DELETE']:
-                exit_con(fdclient, sock_client, fdserver, sock)
-            elif length and not chunked:
-                #case: Content-Length: X
-                # We should build some kind of coefficient, to see in how many
-                # times it is faster to download (ie you shouldn't download small
-                # files in 256 parts, nor you should download big files in 3 parts)
-                bufflength = decidebufflength(length)
-                while len(content) < length:
-                    minibuff = fdserver.read(bufflength if length - len(content) > bufflength else length - len(content))
-                    content += minibuff
-                # We should be done downloading the page. Gotta send it back
-                fdclient.write(content)
-                exit_con(fdclient, sock_client, fdserver, sock) 
-            elif chunked:
-                #case: Transfert-Encoding: Chunked
-                if length:
-                    # Chunked = True and length = True
-                    # I dont think it is possible
-                    try:
-                        fdclient.write('Not implemented')
-                    except sock_err:
-                        pass
+    headers = getheaders(fdserver)
+    if not headers:
+        # We should send again some kind of message saying that something wrong happened between here and the server
+        # right now we just ignore
+        logger.warning("Could not connect to %s:%s for %s"%(dst, port, addr))
+        return
+    fdclient.write(headers)
+    chunked = True if b'Transfer-Encoding' in headers and b'chunked' in headers.split(b'Transfer-Encoding')[1].split(b'\r\n')[0] else False
+    length = int(headers.split(b'Content-Length: ')[1].split(b'\r\n')[0]) if b'Content-Length' in headers else 0
+    if msg.split(b' ')[0] in [b'HEAD', b'OPTIONS', b'TRACE', b'DELETE']:
+        exit_con(fdclient, sock_client, fdserver, sock)
+    elif length and not chunked:
+        #case: Content-Length: X
+        # We should build some kind of coefficient, to see in how many
+        # times it is faster to download (ie you shouldn't download small
+        # files in 256 parts, nor you should download big files in 3 parts)
+        bufflength = decidebufflength(length)
+        while len(content) < length:
+            minibuff = fdserver.read(bufflength if length - len(content) > bufflength else length - len(content))
+            content += minibuff
+        # We should be done downloading the page. Gotta send it back
+        fdclient.write(content)
+        exit_con(fdclient, sock_client, fdserver, sock) 
+    elif chunked:
+        #case: Transfert-Encoding: Chunked
+        if length:
+            # Chunked = True and length = True
+            # I dont think it is possible
+            try:
+                fdclient.write('Not implemented')
+            except sock_err:
+                pass
+        else:
+            # Chunked = True and length = False
+            # Probably will be the most used case
+            transmission_over = False
+            while not transmission_over:
+                rawchunksize = fdserver.readline()
+                if rawchunksize == b'\r\n':
+                    content += rawchunksize
+                elif rawchunksize == b'0\r\n':
+                    content += rawchunksize + b'\r\n'
+                    fdclient.write(content)
+                    exit_con(fdclient, sock_client, fdserver, sock)
+                    transmission_over = True
                 else:
-                    # Chunked = True and length = False
-                    # Probably will be the most used case
-                    transmission_over = False
-                    while not transmission_over:
-                        rawchunksize = fdserver.readline()
-                        if rawchunksize == b'\r\n':
-                            content += rawchunksize
-                        elif rawchunksize == b'0\r\n':
-                            content += rawchunksize + b'\r\n'
-                            fdclient.write(content)
-                            exit_con(fdclient, sock_client, fdserver, sock)
-                            transmission_over = True
-                        else:
-                            content += rawchunksize
-                            chunksize = int(rawchunksize.split(b'\r\n')[0], 16)
-                            data = b''
-                            # we had to implement this loop because on py3 when the internet is slow
-                            # you can have the issue where not all the data is read but only part of it
-                            # which then crashes because the programs tries to read the next chunk size 
-                            # with random http data
-                            while not len(data) == chunksize:
-                                data += fdserver.read(chunksize-len(data))
-                            content += data
-    except KeyboardInterrupt:
+                    content += rawchunksize
+                    chunksize = int(rawchunksize.split(b'\r\n')[0], 16)
+                    data = b''
+                    # we had to implement this loop because on py3 when the internet is slow
+                    # you can have the issue where not all the data is read but only part of it
+                    # which then crashes because the programs tries to read the next chunk size 
+                    # with random http data
+                    while not len(data) == chunksize:
+                        data += fdserver.read(chunksize-len(data))
+                    content += data
         return 0
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
