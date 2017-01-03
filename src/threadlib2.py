@@ -239,7 +239,7 @@ def worker(sock_client, dst, port, msg, addr, logger, crt, key, context):
             try:
                 fdclient.write('Not implemented')
             except sock_err:
-                pass
+                return -1
         else:
             # Chunked = True and length = False
             # Probably will be the most used case
