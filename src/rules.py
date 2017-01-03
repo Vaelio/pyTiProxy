@@ -1,6 +1,3 @@
-#!/bin/env python
-# -*- coding:utf-8 -*-
-
 from re import findall
 
 hacker_agent = {b'SQLMAP', b'USERAGENT', b'NIKTO', b'VEGA', b'BLACKSUN', b'NESSUS'}

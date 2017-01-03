@@ -1,6 +1,3 @@
-#!/bin/python3  
-#-*- coding:utf-8 -*-
-
 from ssl import create_default_context, Purpose
 from socket import socket, SOL_SOCKET, SO_REUSEADDR, error as sock_err
 

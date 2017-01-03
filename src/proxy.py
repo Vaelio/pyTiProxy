@@ -1,4 +1,4 @@
-#!/bin/env python3
+#!/usr/bin/env python3
 #-*- coding:utf-8 -*-
 
 __doc__ = """The main script of the package. It'll start the proxy server and handle everything

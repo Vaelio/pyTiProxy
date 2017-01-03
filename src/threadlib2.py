@@ -1,6 +1,3 @@
-#!/bin/python3
-#-*- coding:utf-8 -*-
-
 __doc__ = '''
     thread library for proxy script. It provides every function that we are threading
 '''
