@@ -4,6 +4,7 @@ __doc__ = '''
     thread library for proxy script. It provides every function that we are threading
 '''
 
+# We should update all the docstrings ... x)
 __all__ = ['cltthread', 'loger', 'worker', 'time']
 
 from time import time
