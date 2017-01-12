@@ -1,5 +1,5 @@
 *.pyc
-log/*.log
+./log/*.log
 *.swp
 __pycache__/*
 .idea/

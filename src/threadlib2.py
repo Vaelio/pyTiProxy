@@ -1,268 +1,168 @@
-__doc__ = '''
-    thread library for proxy script. It provides every function that we are threading
-'''
-
-# We should update all the docstrings ... x)
-__all__ = ['cltthread', 'loger', 'worker', 'time']
-
-from time import time
-from multiprocessing import Lock
-from datetime import datetime
-from rules import catch_hackers, dump_infos
-from sock_builder import start_ssl_socket,start_standard_socket
-from socket import error as sock_err, fromfd, socket
+from time import sleep
+from ssl import SSLWantWriteError, SSLWantReadError
+from socket import error as sock_err, socket, SHUT_RDWR
+from select import select
+from math import ceil
 
 
-def cltthread(logger, ownqueue, crt, key, context, ssl):
-    """ This func is what manages each client connecting, for ONE requests
-
-
-    @type sock: socket
-    @param sock: Communication socket between proxy and client
-    @type addr: tuple (ipv4, port)
-    @param addr: Address representation of the client
-    @type queue: queue
-    @param queue: queue that will contain HTTP request to treat
-    """
-    # we receive what the client wanna do
-    try:
-        transmission_over = False
-        while not transmission_over:
-            sock, addr = ownqueue.get()
-            if ssl:
-                sock = context.wrap_socket(sock, server_side=True)
-            content = b""
-            received_all_data = False
-            while not received_all_data:
-                buffer_string = sock.recv(536)
-                content += buffer_string
-                if len(buffer_string) < 536:
-                    received_all_data = True
-            msg = content
-            if not len(msg):
-                pass
-            # we parse it
-            try:
-                dst = msg.split(b'Host: ')[1].split(b'\r\n')[0]
-                port = int(dst.split(b':')[1]) if b':' in dst else 80
-                dst = dst.split(b':')[0] if b':' in dst else dst
-            except IndexError:
-                # format of msg does not match usual stuff
-                # Somebody else is probably attempting to get through our proxy
-                # We need to do something here
-                sock.close()
-                continue
-            # msg = ' '.join(msg.split()[0].split(' ')[1:])
-            # then we put it in the queue so that the workers will do their job
-            logger.info("%s requested %s:%s"%(addr, dst, port))
-            worker(sock, b'open.mrgiggy.com', 443, msg, addr, logger, crt, key, context)
-            # queue.put([sock, dst, port, msg, addr])
-            # finally LOG the file
-            #print '%s - [INFO] %s - %s'%(time(), addr, repr(msg))
-            # then returns
-    except KeyboardInterrupt:
-        return 0
-
-
-
-def loger(queue):
-    """
-    This func handles any log a client may produce
-
-    @type queue: queue
-    @param queue: queue that will contain all the log from HTTP request
-    """
+def cltthread(logger, ownqueue, context, ssl):
     try:
         while True:
-            event = queue.get()
-            content = '%s - [INFO] %s - %s\n'%(\
-                        time(),\
-                        event[0],\
-                        repr(event[1]).replace('\r\n', '\\r\\n')\
-                        )
-            with Lock():
-                print('%s - [INFO] %s - %s [BACKLOG: %s]'%(time(),event[0], repr(event[1]).replace('\r\n', '\\r\\n'), queue.qsize()))
-                with open('http.log', 'a+') as file_descriptor:
-                    file_descriptor.write(content)
-    except KeyboardInterrupt:
-        return 0
-
-def generate_404(fdclient):
-    fdclient.write(b"""HTTP/1.1 404 File not found\r\nDate: %s\r\nConnection: close\r\nContent-Type: text/html\r\nContent-Length: 194\r\n\r\n<head>\r\n<title>Error response</title>\r\n</head>\r\n<body>\r\n<h1>Error response</h1>\r\n<p>Error code 404.\r\n<p>Message: File not found.\r\n<p>Error code explanation: 404 = Nothing matches the given URI.\r\n</body>"""%datetime.now())
-    try:
-        fdclient.close()
-    except :
-        # wtf is this shit
-        return 1
-    return 0
-
-def decidebufflength(length):
-    if length < (0.5 * 1024):
-        # file is really small
-        bufflength = length
-        # we download it in one time
-    elif length < (5 * 1024):
-        # file size < 5 ko
-        bufflength = 1024
-        # We download at 1 ko at a time
-    elif length < (100 * 1024):
-        # medium sized file
-        bufflength = 16 * 1024
-        # We download 16 ko each time
-    else:
-        # Really big file (over 100k bytes)
-        bufflength = 32 * 1024
-        # We download 32 ko each time
-    return bufflength
-
-
-
-def getheaders(fdserver):
-    headers = b""
-    while True:
-        try:
-            serverbuffer = fdserver.readline()
-            headers += serverbuffer
-            if not len(serverbuffer.split()):
-                return headers
-        except ConnectionResetError:
-            return False
-
-
-def exit_con(fdclient, sock_client, fdserver, sock_server):
-    try:
-        if not fdclient.closed:
-            fdclient.close()
-            sock_client.close()
-        if not fdserver.closed:
-            fdserver.close()
-            sock_server.close()
-    except sock_err:
-        ################ LOG ######################
-        # We should log whenever we have this case happening. 
-        # That means that the socket got closed between the begining and the end of the communication
-        return False
-    else:
-        return True
-
-
-def worker(sock_client, dst, port, msg, addr, logger, crt, key, context):
-    """
-    This function is the threaded one that will be treating all HTTP request in live.
-    It is meant to use inside a pool of thread. It will pickup any requests in its queue,
-    will forward the request to the destinated webserver,
-    and then forward back the returned packets to the client.
-
-    @type queue: queue
-    @param queue: queue that will contain all HTTP requests
-    @type num: int
-    @param num: the number of the thread.
-    """
-    # If the queue is not empty (means that client wants something)
-    # We should delete this line, i think it is killing the process
-    # if not queue.empty():
-    # We take the last oldest instruction from the queue
-    # format of each element:
-    # [client socket, remote host, remote port, client request]
-    # sock_client, dst, port, msg, addr = queue.get()
-    fdclient = sock_client.makefile('rwb', 0)
-    if catch_hackers(dump_infos(msg), addr, sock_client, fdclient, msg):
-        generate_404(fdclient)
-        #LOG HERE
-    try:
-        if context:
-            sock = context.wrap_socket(socket(), server_side = False)
-        else:
-            sock = start_standard_socket()
-        # Connect to remote host
-        sock.connect((dst, port))
-        fdserver = sock.makefile('rwb', 0)
-        # Send the HTTP Request
-        fdserver.write(msg)
-        #print 'Worker %s connected to remote host'%num
-    except TimeoutError:
-        # Could not connect to host
-        # Before closing we should send some data to the user
-        # 503 maybe ? or Bad Gateway
-        fdclient.close()
-        sock_client.close()
-        return
-    except sock_err:
-        fdclient.close()
-        sock_client.close()
-        return
-    except OSError:
-        # no route to host
-        # Before closing we should send some data to the user
-        # 503 maybe ? or Bad Gateway
-        fdclient.close()
-        sock_client.close()
-        if not exit_con(fdclient, sock_client, fdserver, sock):
-            # we should log. something wrong happened
-            pass
-        return
-    # Setup every thing for server communication
-    content, length, chunked = b'', 0, False
-    done = False
-    # Now we will work out with the server
-    # We loop on the recv to get everything
-
-    headers = getheaders(fdserver)
-    if not headers:
-        # We should send again some kind of message saying that something wrong happened between here and the server
-        # right now we just ignore
-        logger.warning("Could not connect to %s:%s for %s"%(dst, port, addr))
-        return
-    fdclient.write(headers)
-    chunked = True if b'Transfer-Encoding' in headers and b'chunked' in headers.split(b'Transfer-Encoding')[1].split(b'\r\n')[0] else False
-    length = int(headers.split(b'Content-Length: ')[1].split(b'\r\n')[0]) if b'Content-Length' in headers else 0
-    if msg.split(b' ')[0] in [b'HEAD', b'OPTIONS', b'TRACE', b'DELETE']:
-        exit_con(fdclient, sock_client, fdserver, sock)
-    elif length and not chunked:
-        #case: Content-Length: X
-        # We should build some kind of coefficient, to see in how many
-        # times it is faster to download (ie you shouldn't download small
-        # files in 256 parts, nor you should download big files in 3 parts)
-        bufflength = decidebufflength(length)
-        while len(content) < length:
-            minibuff = fdserver.read(bufflength if length - len(content) > bufflength else length - len(content))
-            content += minibuff
-        # We should be done downloading the page. Gotta send it back
-        fdclient.write(content)
-        exit_con(fdclient, sock_client, fdserver, sock) 
-    elif chunked:
-        #case: Transfert-Encoding: Chunked
-        if length:
-            # Chunked = True and length = True
-            # I dont think it is possible
+            sock, addr = ownqueue.get()
+            logger.info('Accepting new connection from %s' % addr[0])
+            if ssl:
+                try:
+                    sock = context.wrap_socket(sock, server_side=True)
+                except OSError:
+                    print('are you sure you got the corresponding certificate?')
+                    shutdown(sock)
+                    continue
+            sock.setblocking(False)
+            msg = b""
+            for data in recvall_sock(sock):
+                msg += data
+            # recvall returned good data
+            if not msg:
+                logger.warning('Received empty request, closing socket')
+                shutdown(sock)
+                continue
+            dst, port = parserequest(msg, ssl)
+            if not dst or not port:
+                logger.warning('Meh, i think %s is fuzzing us' % (addr[0]))
+                continue
+            # work to be done :)
+            # check wether or not the request is legit
+            # now we should be able to send it to worker
             try:
-                fdclient.write('Not implemented')
-            except sock_err:
-                return -1
+                request_and_forward(sock, (dst, port), msg, context if ssl else None)
+            except AssertionError:
+                logger.warning('Oops ! Something wrong happened with %s requesting %s' % (addr[0], dst))
+            shutdown(sock)
+            logger.info(b'job "' + msg.split(b' ')[0] + b' ' + dst + msg.split(b' ')[1].split(b'\r\n')[0] + b'" is ok')
+    except KeyboardInterrupt:
+        pass
+
+
+def shutdown(sock):
+    try:
+        sock.shutdown(SHUT_RDWR)
+        sock.close()
+    except Exception:
+        pass
+    return
+
+
+def waitforsock_r(sock):
+    waiting = True
+    while waiting:
+        r, w, e = select((sock,), (), (), 0)
+        if r and r[0] == sock:
+            waiting = False
+    return sock
+
+
+def waitforsock_w(sock):
+    waiting = True
+    while waiting:
+        r, w, e = select((), (sock,), (), 0)
+        if w and w[0] == sock:
+            waiting = False
+    return sock
+
+
+def request_and_forward(sc, dest, msg, context):
+    ss = socket()
+    if context:
+        ss = context.wrap_socket(ss, server_side=False)
+    assert ss.connect_ex((dest[0], dest[1])) == 0
+    ss.setblocking(0)
+    if b'Keep-Alive' in msg.split(b'\r\n\r\n')[0] or b'keep-alive' in msg.split(b'\r\n\r\n')[0]:
+        msg = msg.replace(b'Connection: Keep-Alive', b'Connection: close')
+        msg = msg.replace(b'Connection: keep-alive', b'Connection: close')
+    assert sendall_sock(ss, msg) == len(msg)
+    for data in recvall_sock(ss):
+        if b'Keep-Alive' in data.split(b'\r\n\r\n')[0] or b'keep-alive' in data.split(b'\r\n\r\n')[0]:
+            data = data.replace(b'Connection: Keep-Alive', b'Connection: close')
+            data = data.replace(b'Connection: keep-alive', b'Connection: close')
+        try:
+            assert sendall_sock(sc, data) == len(data)
+        except BrokenPipeError:
+            shutdown(ss)
+            raise AssertionError
+    shutdown(ss)
+    return
+
+
+def parserequest(data, ssl, pssl=443, pstd=80):
+    try:
+        dst = data.split(b'Host: ')[1].split(b'\r\n')[0]
+        if b':' in dst:
+            port = int(dst.split(b':')[1])
+            dst = dst.split(b':')[0]
+        elif ssl:
+            port = pssl 
         else:
-            # Chunked = True and length = False
-            # Probably will be the most used case
-            transmission_over = False
-            while not transmission_over:
-                rawchunksize = fdserver.readline()
-                if rawchunksize == b'\r\n':
-                    content += rawchunksize
-                elif rawchunksize == b'0\r\n':
-                    content += rawchunksize + b'\r\n'
-                    fdclient.write(content)
-                    exit_con(fdclient, sock_client, fdserver, sock)
-                    transmission_over = True
-                else:
-                    content += rawchunksize
-                    chunksize = int(rawchunksize.split(b'\r\n')[0], 16)
-                    data = b''
-                    # we had to implement this loop because on py3 when the internet is slow
-                    # you can have the issue where not all the data is read but only part of it
-                    # which then crashes because the programs tries to read the next chunk size 
-                    # with random http data
-                    while not len(data) == chunksize:
-                        data += fdserver.read(chunksize-len(data))
-                    content += data
-        return 0
+            port = pstd
+        return dst, port
+    except IndexError:
+        # the client didn't specify a host
+        return None, None
+
+
+def recvall_sock(sock, maxtc=5):
+    over, sb, tc, buffsize = False, b"", 0, 536
+    waitforsock_r(sock)
+    while not over:
+        try:
+            sb = sock.recv(buffsize)
+        except SSLWantReadError:
+            tc += 1
+            if tc >= maxtc:
+                break
+            else:
+                sleep(0.1)
+                continue
+        except Exception:
+            tc += 1
+            if tc >= maxtc:
+                break
+            else:
+                sleep(0.1)
+                continue
+        else:
+            tc = 0
+            if not len(sb):
+                over = True
+            else:
+                if len(sb) == buffsize:
+                    # put a ceil just in case, because we cant recv a float amount
+                    # of data.
+                    buffsize = ceil(buffsize * 2)
+                yield sb
+
+
+def sendall_sock(sock, data):
+    # This function doesn't manage timeout. It Could be not safe.
+    over, buff, size = False, data, 0
+    while not over:
+        try:
+            waitforsock_w(sock)
+            # it looks like this works better for sending
+            # but did we not just convert non blocking socket to blocking sockets ? :/
+            # let's just hope we don't need to do that for recvall_sock, otherwise the performance
+            # we gained using non blocking socket migtht be gone.
+            size = sock.send(buff)
+        except SSLWantWriteError:
+            # we should not go there i think
+            pass
+        except sock_err:
+            over = True
+        else:
+            buff = buff[size:]
+            if not size:
+                sleep(0.1)
+            if not len(buff):
+                over = True
+    return len(data) if len(buff) == 0 else -len(buff)
 
 # vim: tabstop=8 expandtab shiftwidth=4 softtabstop=4
