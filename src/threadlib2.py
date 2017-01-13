@@ -15,7 +15,7 @@ def cltthread(logger, ownqueue, context, ssl):
                     sock = context.wrap_socket(sock, server_side=True)
                 except OSError:
                     print('are you sure you got the corresponding certificate?')
-                    shutdown(sock)
+                    shutdown(sock, logger)
                     continue
             sock.setblocking(False)
             msg = b""
@@ -24,7 +24,7 @@ def cltthread(logger, ownqueue, context, ssl):
             # recvall returned good data
             if not msg:
                 logger.warning('Received empty request, closing socket')
-                shutdown(sock)
+                shutdown(sock, logger)
                 continue
             dst, port = parserequest(msg, ssl)
             if not dst or not port:
@@ -34,43 +34,39 @@ def cltthread(logger, ownqueue, context, ssl):
             # check wether or not the request is legit
             # now we should be able to send it to worker
             try:
-                request_and_forward(sock, (dst, port), msg, context if ssl else None)
+                request_and_forward(sock, (dst, port), msg, context if ssl else None, logger)
             except AssertionError:
                 logger.warning('Oops ! Something wrong happened with %s requesting %s' % (addr[0], dst))
-            shutdown(sock)
+            shutdown(sock, logger)
             logger.info(b'job "' + msg.split(b' ')[0] + b' ' + dst + msg.split(b' ')[1].split(b'\r\n')[0] + b'" is ok')
     except KeyboardInterrupt:
         pass
 
 
-def shutdown(sock):
+def shutdown(sock, logger):
     try:
         sock.shutdown(SHUT_RDWR)
         sock.close()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.exception(e)
     return
 
 
-def waitforsock_r(sock):
+def waitforsock(sock, action):
     waiting = True
     while waiting:
-        r, w, e = select((sock,), (), (), 0)
-        if r and r[0] == sock:
-            waiting = False
+        if action == 'r':
+            r, w, e = select((sock,), (), (), 0)
+            if r and r[0] == sock:
+                waiting = False
+        else:
+            r, w, e = select((), (sock,), (), 0)
+            if w and w[0] == sock:
+                waiting = False
     return sock
 
 
-def waitforsock_w(sock):
-    waiting = True
-    while waiting:
-        r, w, e = select((), (sock,), (), 0)
-        if w and w[0] == sock:
-            waiting = False
-    return sock
-
-
-def request_and_forward(sc, dest, msg, context):
+def request_and_forward(sc, dest, msg, context, logger):
     ss = socket()
     if context:
         ss = context.wrap_socket(ss, server_side=False)
@@ -87,9 +83,9 @@ def request_and_forward(sc, dest, msg, context):
         try:
             assert sendall_sock(sc, data) == len(data)
         except BrokenPipeError:
-            shutdown(ss)
+            shutdown(ss, logger)
             raise AssertionError
-    shutdown(ss)
+    shutdown(ss, logger)
     return
 
 
@@ -111,7 +107,7 @@ def parserequest(data, ssl, pssl=443, pstd=80):
 
 def recvall_sock(sock, maxtc=5):
     over, sb, tc, buffsize = False, b"", 0, 536
-    waitforsock_r(sock)
+    waitforsock(sock, 'r')
     while not over:
         try:
             sb = sock.recv(buffsize)
@@ -146,7 +142,7 @@ def sendall_sock(sock, data):
     over, buff, size = False, data, 0
     while not over:
         try:
-            waitforsock_w(sock)
+            waitforsock(sock, 'w')
             # it looks like this works better for sending
             # but did we not just convert non blocking socket to blocking sockets ? :/
             # let's just hope we don't need to do that for recvall_sock, otherwise the performance
