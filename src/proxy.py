@@ -9,16 +9,16 @@ from sock_builder import start_ssl_socket, start_standard_socket
 from argparse import ArgumentParser
 from logger import init_logger
 from socket import error as sock_err
-
+from multiprocessing import Process as Child, Queue
 
 __doc__ = """The main script of the package. It'll start the proxy server and handle everything
 """
 __all__ = ['__init_serv__', 'loger', 'worker', 'cltthread']
 __author__ = ['Eudeline Valentin', 'Benoît Decampenaire']
-__reason__ = """ My own little project """
 __date__ = """ v2rc1 24 dec 2016 """
 
 if version_info[0] < 3:
+    # could maybe work with py2 now ?
     exit("This program won't work with python version below python 3")
 
 
@@ -28,8 +28,6 @@ def __init_serv__(ssl, address, port, crt, key):
         starts the logger thread, bind our script to 0.0.0.0:8080, and finally starts new
         thread for each client that connects
     """
-
-    from multiprocessing import Process as Child, Queue
     # Defines a FIFO queue for requests process
     ownqueue = Queue()
     logger = init_logger("log/proxy.log")
