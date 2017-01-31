@@ -1,41 +1,66 @@
-from re import findall
+from re import findall, IGNORECASE
+from time import asctime
+
 
 hacker_agent = {b'SQLMAP', b'USERAGENT', b'NIKTO', b'VEGA', b'BLACKSUN', b'NESSUS'}
-hacker_data = [b'\'', b'SELECT', b'UNION', b'AND', b'LIKE', b' ', b'%20', b'%2520',
+hacker_data = [b'\'', b'SELECT', b'UNION', b'AND', b'LIKE', b'%2520',
                b'DROP', b'LOAD', b'FILE', b'SCRIPT', b'DOCUMENT', b'COOKIE']
-hacker_referer = {'%3D', '%27', "'", "%"}
+hacker_uri = {b'%3D', b'%27', b'%', b'\'', b'SELECT', b'UNION', b'AND', b'LIKE'}
 
-def dump_infos(msg):
-    return {
-            'referer' : msg.split(b'Referer: ')[1].split(b'\r\n')[0] if b'Referer: ' in msg else b'',\
-            'data' : msg.split(b'\r\n\r\n')[1] if len(msg.split(b'\r\n\r\n')) > 0 else b'',\
-            'user_agent' : msg.split(b'User-Agent: ')[1].split(b'\r\n')[0] if b'User-Agent: ' in msg else b''
-           }
 
-def catch_hackers(client_infos, addr, sock_client, fdclient, msg, detect=False):
+def dump_infos(msg, sock_client, fdclient):
     try:
-        finder_agent = findall(b'\s*\(?(.+?)[/\s][\d.]+', client_infos['user_agent'])
-        for string in finder_agent:
-            if string in hacker_agent:
-                generate_404(fdclient)
-                sock_client.close()
+        uri = msg.split(b' ')[1].split(b' ')[0]
+        return {
+                'uri': uri,
+                'data': msg.split(b'\r\n\r\n')[1] if len(msg.split(b'\r\n\r\n')) > 0 else b'',
+                'user_agent': msg.split(b'User-Agent: ')[1].split(b'\r\n')[0] if b'User-Agent: ' in msg else b''
+               }
+    except IndexError:
+        sock_client.close()
+        generate_404(fdclient)
+
+
+def generate_404(fdclient):
+    try:
+        error = """HTTP/1.1 404 File not found
+        Date: {} GMT
+        Connection: close
+        Content-Type: text/html
+        Content-Length: 194
+
+        <head>
+        <title>Error response</title>
+        </head>
+        <body>
+        <h1>Error response</h1>
+        <p>Error code 404.
+        <p>Message: File not found.
+        <p>Error code explanation: 404 = Nothing matches the given URI.
+        </body>""".format(asctime())
+        fdclient.write(bytes(error.encode('utf-8')))
+    except Exception:
+        return 1
+
+
+def catch_hackers(client_infos, sock_client, fdclient, detect=False):
+    try:
+        finder_agent = findall(b'\s*\(?(.+?)[/\s][\d.]+', client_infos['user_agent'], flags=IGNORECASE)
+        for item in finder_agent:
+            if item.upper() in hacker_agent:
                 detect = True
-        for item in client_infos['referer']:
-            if item in hacker_referer:
-                generate_404(fdclient)
-                sock_client.close()
+                return detect
+        for item in hacker_uri:
+            if item in client_infos['uri']:
                 detect = True
+                return detect
         if client_infos['data'] is not None:
             for item in hacker_data:
-                if item in client_infos['data']:
-                    generate_404(fdclient)
-                    sock_client.close()
+                if item.upper() in client_infos['data']:
                     detect = True
-    except IndexError as  e:
-        print(e)
+                    return detect
+    except (IndexError, TypeError):
         sock_client.close()
         generate_404(fdclient)
         detect = True
     return detect
-
-

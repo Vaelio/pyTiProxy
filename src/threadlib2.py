@@ -1,6 +1,7 @@
 from time import sleep
 from ssl import SSLWantWriteError, SSLWantReadError
 from socket import error as sock_err, socket, SHUT_RDWR
+from rules import (dump_infos, generate_404, catch_hackers)
 from select import select
 from math import ceil
 
@@ -44,7 +45,9 @@ def cltthread(logger, ownqueue, context, ssl):
                 # and again, go get a new job
                 continue
             # if everything is fine, retrieve (host, port) from the request
+            fdclient = sock.makefile('rwb', 0)
             dst, port = parserequest(msg, ssl)
+            client_infos = dump_infos(msg, sock, fdclient)
             if not dst or not port:
                 # if the request was malformed
                 logger.warning('Meh, i think %s is fuzzing us' % (addr[0]))
@@ -52,19 +55,22 @@ def cltthread(logger, ownqueue, context, ssl):
                 shutdown(sock, logger)
                 # once again, go get a new job
                 continue
-            # there is work to be done hehe :)
-            # we should check wether or not the request is legit, that is the whole point
-            # now we should be able to send it to worker
-            try:
-                # send the request to the server and forward the data to the client
-                request_and_forward(sock, (dst, port), msg, context if ssl else None, logger)
-            except AssertionError:
-                # if anything crashed during this step, log and quit :) [yes, again]
-                logger.warning('Oops ! Something wrong happened with %s requesting %s' % (addr[0], dst))
-            # anyway this is over, shutdown the socket, 
-            shutdown(sock, logger)
-            # and go get a new job
-            logger.info(b'job "' + msg.split(b' ')[0] + b' ' + dst + msg.split(b' ')[1].split(b'\r\n')[0] + b'" is ok')
+            detect = catch_hackers(client_infos, sock, fdclient)
+            if not detect:
+                try:
+                    # send the request to the server and forward the data to the client
+                    request_and_forward(sock, (dst, port), msg, context if ssl else None, logger)
+                except AssertionError:
+                    # if anything crashed during this step, log and quit :) [yes, again]
+                    logger.warning('Oops ! Something wrong happened with %s requesting %s' % (addr[0], dst))
+                # anyway this is over, shutdown the socket,
+                shutdown(sock, logger)
+                # and go get a new job
+                logger.info(b'job "' + msg.split(b' ')[0] + b' ' + dst + msg.split(b' ')[1].split(b'\r\n')[0] + b'" is ok')
+            else:
+                generate_404(fdclient)
+                shutdown(sock, logger)
+                logger.warning('Hacker detected ! {} from {}'.format(addr, client_infos))
     except KeyboardInterrupt:
         # handle the Ctrl+ C
         pass
