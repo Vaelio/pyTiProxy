@@ -1,9 +1,10 @@
-from time import sleep
+from time import sleep, asctime
 from ssl import SSLWantWriteError, SSLWantReadError
 from socket import error as sock_err, socket, SHUT_RDWR
 from rules import (dump_infos, generate_404, catch_hackers)
 from select import select
 from math import ceil
+from logging import info
 
 
 def cltthread(logger, ownqueue, context, ssl):
@@ -18,7 +19,7 @@ def cltthread(logger, ownqueue, context, ssl):
     try:
         while True:
             sock, addr = ownqueue.get() # Getting a new job *o*
-            logger.info('Accepting new connection from %s' % addr[0])
+            info(logger(date=asctime(), type='INFO', message='Accepting new connection from %s' % addr[0])))
             if ssl:
                 # wrap the socket if ssl mode ON
                 try:
@@ -39,7 +40,7 @@ def cltthread(logger, ownqueue, context, ssl):
             if not msg:
                 # if the returned data is empty. we should not have too much of it now. 
                 # In the past it was caused by keep alive, but now we bypass it.
-                logger.warning('Received empty request, closing socket')
+                info(logger(date=asctime(), type='WARNING', msg = 'Received empty request, closing socket'))
                 # shut every thing off
                 shutdown(sock, logger)
                 # and again, go get a new job
@@ -50,7 +51,7 @@ def cltthread(logger, ownqueue, context, ssl):
             client_infos = dump_infos(msg, sock, fdclient)
             if not dst or not port:
                 # if the request was malformed
-                logger.warning('Meh, i think %s is fuzzing us' % (addr[0]))
+                info(logger(date=asctime(), type='WARNING', msg='Meh, i think %s is fuzzing us' % (addr[0])))
                 # properly close the socket :D
                 shutdown(sock, logger)
                 # once again, go get a new job
@@ -62,15 +63,18 @@ def cltthread(logger, ownqueue, context, ssl):
                     request_and_forward(sock, (dst, port), msg, context if ssl else None, logger)
                 except AssertionError:
                     # if anything crashed during this step, log and quit :) [yes, again]
-                    logger.warning('Oops ! Something wrong happened with %s requesting %s' % (addr[0], dst))
+                    info(logger(date=asctime(), type='WARNING',
+                                msg='Oops ! Something wrong happened with %s requesting %s' % (addr[0], dst)))
                 # anyway this is over, shutdown the socket,
                 shutdown(sock, logger)
                 # and go get a new job
-                logger.info(b'job "' + msg.split(b' ')[0] + b' ' + dst + msg.split(b' ')[1].split(b'\r\n')[0] + b'" is ok')
+                info(logger(date=asctime(), type='INFO',
+                            msg=b'job "' + msg.split(b' ')[0] + b' ' + dst + msg.split(b' ')[1].split(b'\r\n')[0] + b'" is ok'))
             else:
                 generate_404(fdclient)
                 shutdown(sock, logger)
-                logger.warning('Hacker detected ! {} from {}'.format(addr, client_infos))
+                info(logger(date=asctime(), type='WARNING',
+                            msg='Hacker detected ! {} from {}'.format(addr, client_infos)))
     except KeyboardInterrupt:
         # handle the Ctrl+ C
         pass
@@ -88,7 +92,8 @@ def shutdown(sock, logger):
         sock.shutdown(SHUT_RDWR) # shuts off READ / WRITE mode on the socket
         sock.close() # and closes it
     except Exception as e:
-        logger.exception(e) # if for some weird reason, something happened while trying to close the socket. Log and quit
+        info(logger(date=asctime(), type='EXCEPTION', msg=e))
+        # if for some weird reason, something happened while trying to close the socket. Log and quit
     return
 
 

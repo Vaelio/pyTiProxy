@@ -1,18 +1,17 @@
-from logging import getLogger, FileHandler, Formatter, INFO
+from logging import info, INFO, basicConfig
+from json import dumps
 
 
-def init_logger(filename):
-    logger = getLogger(__name__)
-    logger.setLevel(INFO)
+class StructuredMessage(object):
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
 
-    # create a file handler
-    handler = FileHandler(filename)
-    handler.setLevel(INFO)
+    def __str__(self):
+        return '%s' % (dumps(self.kwargs))
 
-    # create a logging format
-    formatter = Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s', '%Y-%m-%d %H:%M:%S')
-    handler.setFormatter(formatter)
+_ = StructuredMessage  # for readability
 
-    # add the handlers to the logger
-    logger.addHandler(handler)
-    return logger
+
+def init_log():
+    basicConfig(level=INFO, format='%(message)s')
+    return _

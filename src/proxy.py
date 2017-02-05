@@ -7,7 +7,7 @@ from threadlib2 import cltthread
 from sys import version_info, exit
 from sock_builder import start_ssl_socket, start_standard_socket
 from argparse import ArgumentParser
-from logger import init_logger
+from logger import init_log
 from socket import error as sock_err
 from multiprocessing import Process as Child, Queue
 
@@ -30,7 +30,7 @@ def __init_serv__(ssl, address, port, crt, key):
     """
     # Defines a FIFO queue for requests process
     ownqueue = Queue()
-    logger = init_logger("log/proxy.log")
+    logger = init_log()
     if ssl:
         sock, context = start_ssl_socket(crt, key, server_side=True)
     else:
