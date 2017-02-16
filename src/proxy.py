@@ -70,7 +70,7 @@ def __init_serv__(ssl, address, port, crt, key):
 
 
 if __name__ == '__main__':
-    parser = ArgumentParser(description='ProxyPy is a reverse proxy for lulz :)')
+    parser = ArgumentParser(description='pyTiProxy is a reverse proxy/transparent proxy for lulz :)')
     parser.add_argument('--ssl', '-s', action='store_true', required=False)
     parser.add_argument('--address', '-i', metavar='IP address of interface that should listen',
                         nargs='?', type=str, required=True)
