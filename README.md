@@ -7,12 +7,12 @@
 
 ### Note: 
 
-- In order to use SSL, makebecause of socket serialization
+- In order to use SSL, make sure openssl is installed on your system
 - SSL features will work only in reverse proxy scenario
-- python3 is mandatory 
+- python3 is mandatory because of socket serialization
 
 ## USAGE
-    usage: proxy.py [-h]  sure openssl is installed on your system
+    usage: proxy.py [-h [prints this message]]
                     [--ssl [Enable SSL]]
                     [--address [address of interface that should listen]]
                     [--port [Port that should be LISTENING]]
