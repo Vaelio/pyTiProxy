@@ -5,6 +5,7 @@ from rules import (dump_infos, generate_404, catch_hackers)
 from select import select
 from math import ceil
 from logging import info
+from utils import funquote
 
 
 def cltthread(logger, ownqueue, context, ssl):
@@ -45,6 +46,10 @@ def cltthread(logger, ownqueue, context, ssl):
                 shutdown(sock, logger)
                 # and again, go get a new job
                 continue
+            # url decode until there is no more url encoded
+            origin = msg
+            for x in funquote(origin):
+                msg = bytes(x.encode('utf-8'))
             # if everything is fine, retrieve (host, port) from the request
             fdclient = sock.makefile('rwb', 0)
             dst, port = parserequest(msg, ssl)
