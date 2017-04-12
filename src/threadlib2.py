@@ -8,7 +8,7 @@ from logging import info
 from utils import funquote
 
 
-def cltthread(logger, ownqueue, context, ssl):
+def cltthread(logger, servsock, context, ssl):
     '''
     This is the main worker function.
     
@@ -19,7 +19,8 @@ def cltthread(logger, ownqueue, context, ssl):
     '''
     try:
         while True:
-            sock, addr = ownqueue.get() # Getting a new job *o*
+            #sock, addr = ownqueue.get() # Getting a new job *o*
+            sock, addr = servsock.accept() # Getting a new job *o*
             info(logger(date=asctime(), type='INFO', message='Accepting new connection from %s' % addr[0]))
             if ssl:
                 # wrap the socket if ssl mode ON

@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 #-*- coding:utf-8 -*-
 
-
-from time import time
-from threadlib2 import cltthread
 from sys import version_info, exit
+if version_info[0] < 3:
+    # could maybe work with py2 now ?
+    exit("This program won't work with python version below python 3")
+
+from time import time, sleep
+from threadlib2 import cltthread
 from sock_builder import start_ssl_socket, start_standard_socket
 from argparse import ArgumentParser
 from logger import init_log
@@ -17,9 +20,6 @@ __all__ = ['__init_serv__', 'loger', 'worker', 'cltthread']
 __author__ = ['Eudeline Valentin', 'Benoît Decampenaire']
 __date__ = """ v2rc1 24 dec 2016 """
 
-if version_info[0] < 3:
-    # could maybe work with py2 now ?
-    exit("This program won't work with python version below python 3")
 
 
 def __init_serv__(ssl, address, port, crt, key):
@@ -38,17 +38,10 @@ def __init_serv__(ssl, address, port, crt, key):
     # We now don't need workers anymore because we had to adjust for ssl
     # We start a pool of N workers
     # They are used to serve each requests independently from the source client
-    for num in range(15):
-        thread = Child(target=cltthread, args=(logger, ownqueue, context, ssl))
-        # thread = Process(target=cltthread, args=(queue, logqueue, ownqueue))
-        # We set each worker to Daemon
-        # This is important because we can safely ^C now
-        thread.daemon = True
-        thread.start()
     # We start the thread that will log every thing into http.log
     try:
         sock.bind((address, port))
-    except sock_err:
+    except sock_err as e:
         print(
             '%s - [INFO] Exception SOCKET_ERROR: Can\'t bind.Please try again later.' %
             (time()))
@@ -58,11 +51,17 @@ def __init_serv__(ssl, address, port, crt, key):
             # Here we just wait until we received a new connection (from a client)
             # We then start a thread to handle this specific client / request
             sock.listen(0)
+            for num in range(15):
+                thread = Child(target=cltthread, args=(logger, sock, context, ssl))
+                # thread = Process(target=cltthread, args=(queue, logqueue, ownqueue))
+                # We set each worker to Daemon
+                # This is important because we can safely ^C now
+                thread.daemon = True
+                thread.start()
             while True:
                 # max connection is set to 0, but i guess we could set it to the number of
                 # started workers. Possibly using threading.activeCount()
-                cltsock, cltaddr = sock.accept()
-                ownqueue.put([cltsock, cltaddr])
+                sleep(1)
         except KeyboardInterrupt:
             sock.close()
             print('Bye')
