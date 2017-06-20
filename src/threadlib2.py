@@ -1,7 +1,7 @@
 from time import sleep, asctime
 from ssl import SSLWantWriteError, SSLWantReadError
 from socket import error as sock_err, socket, SHUT_RDWR
-from rules import (dump_infos, generate_404, catch_hackers)
+from rules import (dump_infos, generate_404, catch_hackers, read_blacklist)
 from select import select
 from math import ceil
 from logging import info
@@ -17,6 +17,7 @@ def cltthread(logger, servsock, context, ssl):
     context: the SSL context to wrap the socket with
     ssl: the SSL switch. Setting it to True will make the worker use the given context to wrap the socket.
     '''
+    rules = read_blacklist(logger)
     try:
         while True:
             #sock, addr = ownqueue.get() # Getting a new job *o*
@@ -62,7 +63,7 @@ def cltthread(logger, servsock, context, ssl):
                 shutdown(sock, logger)
                 # once again, go get a new job
                 continue
-            detect = catch_hackers(client_infos, sock, fdclient)
+            detect = catch_hackers(client_infos, sock, fdclient, rules)
             if not detect:
                 try:
                     # send the request to the server and forward the data to the client

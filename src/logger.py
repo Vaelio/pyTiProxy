@@ -1,4 +1,4 @@
-from logging import info, INFO, basicConfig
+from logging import INFO, basicConfig
 from json import dumps
 
 

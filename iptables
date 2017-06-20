@@ -1,0 +1,2 @@
+iptables -t nat -A PREROUTING ! -s ipsrc/rien -p tcp --dport 80 -j DNAT --to iprev:portrev
+
