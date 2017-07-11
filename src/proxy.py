@@ -12,6 +12,7 @@ from sock_builder import start_ssl_socket, start_standard_socket
 from argparse import ArgumentParser
 from logger import init_log
 from socket import error as sock_err
+from utils import readconfs
 from multiprocessing import Process as Child, Queue
 
 __doc__ = """The main script of the package. It'll start the proxy server and handle everything
@@ -22,13 +23,24 @@ __date__ = """ v2rc1 24 dec 2016 """
 
 
 
-def __init_serv__(ssl, address, port, crt, key):
+def __init_serv__(ssl, address, port, crt, key, config):
 
     """ This func inits everything. Defines the queue, starts the pool of http workers,
         starts the logger thread, bind our script to 0.0.0.0:8080, and finally starts new
         thread for each client that connects
     """
     # Defines a FIFO queue for requests process
+    if not config and not address:
+         exit('Please at least use --address/-i or --config/-C')
+    elif config:
+         parsed_config_file = readconfs(config)
+         address = parsed_config_file['basic']['address']
+         path = parsed_config_file['basic']['basic_path']
+         port = int(parsed_config_file['basic']['port'])
+         ssl = False if parsed_config_file['basic']['ssl'] == 'False' else True
+         if ssl:
+             crt = path + 'config/' + parsed_config_file['ssl']['crt']
+             key = path + 'config/' + parsed_config_file['ssl']['key']
     ownqueue = Queue()
     logger = init_log()
     if ssl:
@@ -72,10 +84,11 @@ if __name__ == '__main__':
     parser = ArgumentParser(description='pyTiProxy is a reverse proxy/transparent proxy for lulz :)')
     parser.add_argument('--ssl', '-s', action='store_true', required=False)
     parser.add_argument('--address', '-i', metavar='IP address of interface that should listen',
-                        nargs='?', type=str, required=True)
+                        nargs='?', type=str, required=False)
+    parser.add_argument('--config', '-C', metavar='Config file to read', nargs='?', type=str, required=False)
     parser.add_argument('--port', '-p', metavar='Port that should listen', nargs='?', type=int, required=False,
                         default=8080)
     parser.add_argument('--crt', '-c', metavar='crt file for ssl purpose', nargs='?', type=str, required=False)
     parser.add_argument('--key', '-k', metavar='key file for ssl purpose', nargs='?', type=str, required=False)
     args = parser.parse_args()
-    __init_serv__(args.ssl, args.address, args.port, args.crt, args.key)
+    __init_serv__(args.ssl, args.address, args.port, args.crt, args.key, args.config)

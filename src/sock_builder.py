@@ -1,4 +1,4 @@
-from ssl import create_default_context, Purpose
+from ssl import create_default_context, Purpose, SSLError
 from socket import socket, SOL_SOCKET, SO_REUSEADDR, error as sock_err
 
 
@@ -14,7 +14,10 @@ def start_standard_socket():
 
 def start_ssl_socket(crt, key, server_side):
     context = create_default_context(Purpose.CLIENT_AUTH)
-    context.load_cert_chain(certfile=crt, keyfile=key)
+    try:
+        context.load_cert_chain(certfile=crt, keyfile=key)
+    except SSLError:
+        exit('Certificate files are corrupted or empty. Please verify those')
     sock = socket()
     if server_side:
         sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
